@@ -1,9 +1,14 @@
-# Idea
-.idea
-
-.gradle
+# Serialized json objects
+*.json
 
 .DS_Store
+
+# Idea
+.idea/
+
+# Java
+.gradle
+build/
 
 # Compiled class file
 *.class
