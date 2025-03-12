@@ -4,6 +4,7 @@ import JavaObjectPersistency.annotations.FieldAlias;
 import JavaObjectPersistency.annotations.Id;
 import JavaObjectPersistency.annotations.Persistent;
 import JavaObjectPersistency.annotations.Transient;
+import JavaObjectPersistency.query.Query;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -112,6 +113,32 @@ public class JsonStore {
             }
         }
         return instance;
+    }
+
+
+    public <T> List<T> loadStream(Class<T> type, Query query) throws Exception {
+        if (!type.isAnnotationPresent(Persistent.class)) {
+            throw new IllegalArgumentException("Not a @Persistent class");
+        }
+
+        String fileName = getFileName(type);
+        File file = new File(fileName);
+        if (!file.exists()) return Collections.emptyList();
+
+        Map<String, Object> storage = mapper.readValue(file, Map.class);
+        List<T> result = new ArrayList<>();
+
+        for (Map.Entry<String, Object> entry : storage.entrySet()) {
+            JsonNode jsonNode = mapper.valueToTree(entry.getValue());
+
+            // Применяем фильтр
+            if (query.matches(jsonNode)) {
+                T object = deserializeObject(type, jsonNode);
+                result.add(object);
+            }
+        }
+
+        return result;
     }
 
 }
