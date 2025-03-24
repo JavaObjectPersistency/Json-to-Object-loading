@@ -9,7 +9,7 @@ import java.util.List;
 
 
 public class Main {
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
 
         try {
             JsonStore store = new JsonStore();
@@ -33,10 +33,10 @@ public class Main {
             store.save(john);
 
             System.out.println("Updated John with family reference to Jane");
-//            List<Person> janesFamily = new ArrayList<>();
-//            janesFamily.add(john);
-//            jane.setFamily(janesFamily);
-//            store.save(jane);
+            List<Person> janesFamily = new ArrayList<>();
+            janesFamily.add(john);
+            jane.setFamily(janesFamily);
+            store.save(jane);
             // Load John by ID
             List<Person> loadedJohns = store.loadById(Person.class, john.getId());
             if (!loadedJohns.isEmpty()) {
