@@ -51,7 +51,7 @@ public class Main {
             }
 
             // Load all adult persons (age > 18)
-            Query adultQuery = new Query("age.greaterThan(18)");
+            Query adultQuery = new Query("(age.greaterThan(18)) OR (fullName.contains('Jane'))");
             List<Person> adults = store.loadStream(Person.class, adultQuery);
             System.out.println("Found " + adults.size() + " adults:");
             for (Person adult : adults) {

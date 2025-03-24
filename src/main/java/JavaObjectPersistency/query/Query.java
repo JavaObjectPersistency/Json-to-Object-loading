@@ -29,7 +29,7 @@ public class Query implements Filter {
             boolean isNegated = matcher.group(1) != null;
             String field = matcher.group(2);
             String condition = matcher.group(3);
-            String value = matcher.group(4).replaceAll("\"", "");
+            String value = matcher.group(4).replaceAll("'", "");
             String operator = matcher.group(5);
 
             Filter newFilter = createFilter(field, condition, value);
