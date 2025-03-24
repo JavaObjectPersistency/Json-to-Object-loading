@@ -18,40 +18,71 @@ import java.util.*;
 
 public class JsonStore {
     private final ObjectMapper mapper = new ObjectMapper();
+    private final Set<Object> savedObjects = new HashSet<>();
 
     private String getFileName(Class<?> type) {
         return type.getSimpleName() + ".json";
     }
 
     public void save(Object obj) throws Exception {
-        // Check if object has a UUID ID and generate one if it's null
+        saveRecursive(obj, new HashSet<>());
+        savedObjects.clear(); // Очищаем кеш после завершения
+    }
+    private void saveRecursive(Object obj, Set<Object> processed) throws Exception {
+        if (obj == null || processed.contains(obj)) {
+            return;
+        }
+        processed.add(obj);
+
+        // Проверяем и генерируем ID если нужно
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
         Object id = idField.get(obj);
 
-        // If the ID is null and it's a UUID type, generate a new UUID
         if (id == null && idField.getType().equals(UUID.class)) {
             UUID uuid = UUID.randomUUID();
             idField.set(obj, uuid);
             id = uuid;
         }
 
-        String fileName = getFileName(obj.getClass());
-        File file = new File(fileName);
+        // Сохраняем все связанные объекты
+        for (Field field : obj.getClass().getDeclaredFields()) {
+            if (field.isAnnotationPresent(Transient.class)) continue;
+            field.setAccessible(true);
 
-        Map<String, Object> storage = new HashMap<>();
-        if (file.exists() && file.length() != 0) {
-            storage = mapper.readValue(file, Map.class);
+            Object value = field.get(obj);
+            if (value != null) {
+                if (value.getClass().isAnnotationPresent(Persistent.class)) {
+                    saveRecursive(value, processed);
+                } else if (value instanceof Collection<?> collection) {
+                    for (Object element : collection) {
+                        if (element != null && element.getClass().isAnnotationPresent(Persistent.class)) {
+                            saveRecursive(element, processed);
+                        }
+                    }
+                }
+            }
         }
 
-        JsonNode jsonNode = serializeObject(obj);
-        storage.put(String.valueOf(id), jsonNode);
+        // Сохраняем текущий объект только если он ещё не был сохранён
+        if (!savedObjects.contains(obj)) {
+            String fileName = getFileName(obj.getClass());
+            File file = new File(fileName);
 
-        try (FileOutputStream fos = new FileOutputStream(file)) {
-            mapper.writeValue(fos, storage);
+            Map<String, Object> storage = file.exists()
+                    ? mapper.readValue(file, Map.class)
+                    : new HashMap<>();
+
+            JsonNode jsonNode = serializeObject(obj);
+            storage.put(id.toString(), jsonNode);
+
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                mapper.writeValue(fos, storage);
+            }
+
+            savedObjects.add(obj);
         }
     }
-
     private Field findIdField(Class<?> type) {
         for (Field field : type.getDeclaredFields()) {
             if (field.isAnnotationPresent(Id.class)) {

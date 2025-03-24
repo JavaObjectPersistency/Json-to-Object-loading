@@ -22,12 +22,13 @@ public class Main {
 
             // Create and save a child
             Person jane = new Person("Jane Doe", 10);
-            store.save(jane);
+            //store.save(jane);
             System.out.println("Saved Jane with auto-generated UUID: " + jane.getId());
 
             // Create a family relationship
             List<Person> johnsFamily = new ArrayList<>();
             johnsFamily.add(jane);
+            //johnsFamily.add(john);
             john.setFamily(johnsFamily);
             store.save(john);
 
