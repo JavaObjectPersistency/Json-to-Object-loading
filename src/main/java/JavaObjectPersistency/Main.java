@@ -28,11 +28,12 @@ public class Main {
             // Create a family relationship
             List<Person> johnsFamily = new ArrayList<>();
             johnsFamily.add(jane);
-            //johnsFamily.add(john);
             john.setFamily(johnsFamily);
             store.save(john);
 
             System.out.println("Updated John with family reference to Jane");
+            System.out.println("Saved Jane with auto-generated UUID: " + jane.getId());
+
             List<Person> janesFamily = new ArrayList<>();
             janesFamily.add(john);
             jane.setFamily(janesFamily);
@@ -51,12 +52,17 @@ public class Main {
             }
 
             // Load all adult persons (age > 18)
-            Query adultQuery = new Query("(age.greaterThan(18)) OR (fullName.contains('Jane'))");
+            Query adultQuery = new Query("(age.greaterThan(18)))");
+            //Query adultQuery = new Query("(age.greaterThan(18)) OR (fullName.contains('Jane'))");
             List<Person> adults = store.loadStream(Person.class, adultQuery);
             System.out.println("Found " + adults.size() + " adults:");
             for (Person adult : adults) {
                 System.out.println(" - " + adult);
+                adult.setName("NewJohn");
+                store.save(adult);
             }
+            john.setAge(36);
+            store.save(john);
         } catch (Exception e) {
             e.printStackTrace();
         }

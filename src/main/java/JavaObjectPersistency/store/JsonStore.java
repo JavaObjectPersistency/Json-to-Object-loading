@@ -27,8 +27,39 @@ public class JsonStore {
     }
 
     public void save(Object obj) throws Exception {
+        // Проверяем, есть ли объект с таким же ID уже в кеше
+        Field idField = findIdField(obj.getClass());
+        idField.setAccessible(true);
+        UUID id = (UUID) idField.get(obj);
+
+        // Если ID не установлен, генерируем новый
+        if (id == null) {
+            id = UUID.randomUUID();
+            idField.set(obj, id);
+        }
+
+        // Проверяем, есть ли этот объект уже в кеше
+        Object cachedObj = getFromCache(obj.getClass(), id);
+        if (cachedObj != null && cachedObj != obj) {
+            // Если объект с таким ID уже есть в кеше, но это другой экземпляр,
+            // копируем все поля из нового объекта в кешированный
+            copyFields(obj, cachedObj);
+            // И используем кешированный объект для сохранения
+            obj = cachedObj;
+        }
+
         saveRecursive(obj, new HashSet<>());
-        clearCache();
+    }
+
+    private void copyFields(Object source, Object target) throws Exception {
+        Class<?> type = source.getClass();
+        for (Field field : type.getDeclaredFields()) {
+            if (field.isAnnotationPresent(Transient.class)) continue;
+            if (field.isAnnotationPresent(Id.class)) continue; // ID не копируем
+
+            field.setAccessible(true);
+            field.set(target, field.get(source));
+        }
     }
 
     private void saveRecursive(Object obj, Set<Object> processed) throws Exception {
@@ -46,6 +77,9 @@ public class JsonStore {
             idField.set(obj, uuid);
             id = uuid;
         }
+
+        // Добавляем объект в кеш до обработки зависимостей
+        addToCache(obj);
 
         for (Field field : obj.getClass().getDeclaredFields()) {
             if (field.isAnnotationPresent(Transient.class)) continue;
@@ -78,8 +112,6 @@ public class JsonStore {
         try (FileOutputStream fos = new FileOutputStream(file)) {
             mapper.writeValue(fos, storage);
         }
-
-        addToCache(obj);
     }
 
     private Field findIdField(Class<?> type) {
@@ -102,7 +134,7 @@ public class JsonStore {
         }
 
         if (loadingObjects.get().contains(id)) {
-            return Collections.emptyList(); // Возвращаем пустой список, если объект уже загружается
+            return Collections.emptyList();
         }
 
         loadingObjects.get().add(id);
@@ -117,7 +149,6 @@ public class JsonStore {
             if (jsonNode == null) return Collections.emptyList();
 
             T object = deserializeObject(type, jsonNode);
-            addToCache(object);
             return Collections.singletonList(object);
         } finally {
             loadingObjects.get().remove(id);
@@ -169,10 +200,27 @@ public class JsonStore {
 
     private <T> T deserializeObject(Class<T> type, JsonNode jsonNode) throws Exception {
         T instance = type.getDeclaredConstructor().newInstance();
+
+        // Сначала установим ID, чтобы можно было добавить объект в кеш
+        Field idField = findIdField(type);
+        idField.setAccessible(true);
+        JsonNode idNode = jsonNode.get(idField.getName());
+        if (idNode != null) {
+            Object idValue = mapper.treeToValue(idNode, idField.getType());
+            idField.set(instance, idValue);
+
+            // Проверяем, есть ли объект с таким ID уже в кеше
+            Object cachedInstance = getFromCache(type, (UUID)idValue);
+            if (cachedInstance != null) {
+                return (T) cachedInstance;
+            }
+        }
+
+        // Добавляем в кеш до заполнения полей
         addToCache(instance);
 
         for (Field field : type.getDeclaredFields()) {
-            if (field.isAnnotationPresent(Transient.class)) continue;
+            if (field.isAnnotationPresent(Transient.class) || field.isAnnotationPresent(Id.class)) continue;
             field.setAccessible(true);
 
             String fieldName = field.getAnnotation(FieldAlias.class) != null
@@ -271,16 +319,22 @@ public class JsonStore {
         } else {
             System.out.println("No storage file found for " + type.getSimpleName());
         }
+
+        // Очищаем кеш для этого типа
+        objectCache.remove(type);
     }
 
     private void addToCache(Object obj) throws Exception {
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
         UUID id = (UUID) idField.get(obj);
-        objectCache.computeIfAbsent(obj.getClass(), k -> new HashMap<>()).put(id, obj);
+        if (id != null) {
+            objectCache.computeIfAbsent(obj.getClass(), k -> new HashMap<>()).put(id, obj);
+        }
     }
 
     private <T> T getFromCache(Class<T> type, UUID id) {
+        if (id == null) return null;
         Map<UUID, Object> typeCache = objectCache.get(type);
         if (typeCache != null) {
             return (T) typeCache.get(id);
@@ -288,7 +342,7 @@ public class JsonStore {
         return null;
     }
 
-    private void clearCache() {
+    public void clearCache() {
         objectCache.clear();
     }
 }
