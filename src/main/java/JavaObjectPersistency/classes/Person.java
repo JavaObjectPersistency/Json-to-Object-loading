@@ -11,7 +11,7 @@ import java.util.UUID;
 @Persistent
 public class Person {
     @Id
-    private UUID id; // Will be automatically generated if null
+    private Object id; // Will be automatically generated if null
 
     @FieldAlias("fullName")
     private String name;
@@ -34,7 +34,7 @@ public class Person {
 
     // Getters and setters
 
-    public UUID getId() {
+    public Object getId() {
         return id;
     }
 

@@ -4,6 +4,7 @@ import JavaObjectPersistency.annotations.Id;
 import JavaObjectPersistency.annotations.Persistent;
 import JavaObjectPersistency.annotations.Transient;
 import JavaObjectPersistency.annotations.FieldAlias;
+import JavaObjectPersistency.store.IdGenerator;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,7 +12,7 @@ import java.util.UUID;
 @Persistent
 public class PersonIntId {
     @Id
-    private Integer id; // Will be automatically generated if null
+    private Object id; // Will be automatically generated if null
 
     @FieldAlias("fullName")
     private String name;
@@ -34,7 +35,7 @@ public class PersonIntId {
 
     // Getters and setters
 
-    public int getId() {
+    public Object getId() {
         return id;
     }
 

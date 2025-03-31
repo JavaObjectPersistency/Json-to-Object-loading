@@ -3,6 +3,7 @@ package JavaObjectPersistency;
 import JavaObjectPersistency.classes.Person;
 import JavaObjectPersistency.classes.PersonIntId;
 import JavaObjectPersistency.query.Query;
+import JavaObjectPersistency.store.IdGenType;
 import JavaObjectPersistency.store.JsonStore;
 
 import java.util.ArrayList;
@@ -18,19 +19,19 @@ public class Main {
 
             // Create and save a parent
             Person john = new Person("John Doe", 35);
-            store.save(john);
+            store.save(john, IdGenType.UUID);
             System.out.println("Saved John with auto-generated UUID: " + john.getId());
 
             // Create and save a child
             Person jane = new Person("Jane Doe", 10);
-            store.save(jane);
+            store.save(jane, IdGenType.UUID);
             System.out.println("Saved Jane with auto-generated UUID: " + jane.getId());
 
             // Create a family relationship
             List<Person> johnsFamily = new ArrayList<>();
             johnsFamily.add(jane);
             john.setFamily(johnsFamily);
-            store.save(john);
+            store.save(john, IdGenType.UUID);
 
             System.out.println("Updated John with family reference to Jane");
             System.out.println("Saved Jane with auto-generated UUID: " + jane.getId());
@@ -38,7 +39,7 @@ public class Main {
             List<Person> janesFamily = new ArrayList<>();
             janesFamily.add(john);
             jane.setFamily(janesFamily);
-            store.save(jane);
+            store.save(jane, IdGenType.UUID);
 
             // Load John by ID
             List<Person> loadedJohns = store.loadById(Person.class, john.getId());
@@ -61,21 +62,21 @@ public class Main {
             for (Person adult : adults) {
                 System.out.println(" - " + adult);
                 adult.setName("NewJohn");
-                store.save(adult);
+                store.save(adult, IdGenType.UUID);
             }
 
             // Change John's age
             john.setAge(36);
-            store.save(john);
+            store.save(john, IdGenType.UUID);
 
             // Create and save a parent
-            PersonIntId karl = new PersonIntId("Karl", 35);
-            store.save(karl);
+            Person karl = new Person("Karl", 35);
+            store.save(karl, IdGenType.INT);
             System.out.println("Saved Karl with auto-generated INT ID: " + karl.getId());
 
             // Create and save a child
-            PersonIntId paul = new PersonIntId("Paul", 10);
-            store.save(paul);
+            Person paul = new Person("Paul", 10);
+            store.save(paul, IdGenType.INT);
             System.out.println("Saved Paul with auto-generated INT ID: " + paul.getId());
         } catch (Exception e) {
             e.printStackTrace();

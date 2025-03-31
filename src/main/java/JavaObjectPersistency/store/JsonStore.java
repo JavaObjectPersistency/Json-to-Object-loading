@@ -26,28 +26,17 @@ public class JsonStore {
         return type.getSimpleName() + ".json";
     }
 
-    public void save(Object obj) throws Exception {
+    public void save(Object obj, IdGenType mode) throws Exception {
         // Проверяем, есть ли объект с таким же ID уже в кеше
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
         Object id = idField.get(obj);
 
         // Если ID не установлен, генерируем новый
-        if (id == null && idField.getType().equals(UUID.class)) {
-            UUID uuid = UUID.randomUUID();
+        if (id == null) {
+            Object uuid = mode.getGenerator().generateId(obj);
             idField.set(obj, uuid);
             id = uuid;
-        } else if (id == null && idField.getType().equals(Integer.class)) {
-            String fileName = getFileName(obj.getClass());
-            File file = new File(fileName);
-
-            Map<String, Object> storage = file.exists()
-                    ? mapper.readValue(file, Map.class)
-                    : new HashMap<>();
-
-            Integer uid = storage.keySet().size() + 1;
-            idField.set(obj, uid);
-            id = uid;
         }
 
         // Проверяем, есть ли этот объект уже в кеше
@@ -60,7 +49,7 @@ public class JsonStore {
             obj = cachedObj;
         }
 
-        saveRecursive(obj, new HashSet<>());
+        saveRecursive(obj, new HashSet<>(), mode);
     }
 
     private void copyFields(Object source, Object target) throws Exception {
@@ -74,7 +63,7 @@ public class JsonStore {
         }
     }
 
-    private void saveRecursive(Object obj, Set<Object> processed) throws Exception {
+    private void saveRecursive(Object obj, Set<Object> processed, IdGenType mode) throws Exception {
         if (obj == null || processed.contains(obj)) {
             return;
         }
@@ -91,14 +80,10 @@ public class JsonStore {
         idField.setAccessible(true);
         Object id = idField.get(obj);
 
-        if (id == null && idField.getType().equals(UUID.class)) {
-            UUID uuid = UUID.randomUUID();
+        if (id == null) {
+            Object uuid = mode.getGenerator().generateId(obj);
             idField.set(obj, uuid);
             id = uuid;
-        } else if (id == null && idField.getType().equals(Integer.class)) {
-            Integer uid = storage.keySet().size() + 1;
-            idField.set(obj, uid);
-            id = uid;
         }
 
         // Добавляем объект в кеш до обработки зависимостей
@@ -111,11 +96,11 @@ public class JsonStore {
             Object value = field.get(obj);
             if (value != null) {
                 if (value.getClass().isAnnotationPresent(Persistent.class)) {
-                    saveRecursive(value, processed);
+                    saveRecursive(value, processed, mode);
                 } else if (value instanceof Collection<?> collection) {
                     for (Object element : collection) {
                         if (element != null && element.getClass().isAnnotationPresent(Persistent.class)) {
-                            saveRecursive(element, processed);
+                            saveRecursive(element, processed, mode);
                         }
                     }
                 }
@@ -139,7 +124,7 @@ public class JsonStore {
         throw new IllegalArgumentException("No @Id field found in class " + type.getName());
     }
 
-    public <T> List<T> loadById(Class<T> type, UUID id) throws Exception {
+    public <T> List<T> loadById(Class<T> type, Object id) throws Exception {
         if (!type.isAnnotationPresent(Persistent.class)) {
             throw new IllegalArgumentException("Not a @Persistent class");
         }
@@ -226,7 +211,7 @@ public class JsonStore {
             idField.set(instance, idValue);
 
             // Проверяем, есть ли объект с таким ID уже в кеше
-            Object cachedInstance = getFromCache(type, (UUID)idValue);
+            Object cachedInstance = getFromCache(type, idValue);
             if (cachedInstance != null) {
                 return (T) cachedInstance;
             }
