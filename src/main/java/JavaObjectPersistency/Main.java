@@ -1,6 +1,7 @@
 package JavaObjectPersistency;
 
 import JavaObjectPersistency.classes.Person;
+import JavaObjectPersistency.classes.PersonIntId;
 import JavaObjectPersistency.query.Query;
 import JavaObjectPersistency.store.JsonStore;
 
@@ -22,7 +23,7 @@ public class Main {
 
             // Create and save a child
             Person jane = new Person("Jane Doe", 10);
-            //store.save(jane);
+            store.save(jane);
             System.out.println("Saved Jane with auto-generated UUID: " + jane.getId());
 
             // Create a family relationship
@@ -38,6 +39,7 @@ public class Main {
             janesFamily.add(john);
             jane.setFamily(janesFamily);
             store.save(jane);
+
             // Load John by ID
             List<Person> loadedJohns = store.loadById(Person.class, john.getId());
             if (!loadedJohns.isEmpty()) {
@@ -61,8 +63,20 @@ public class Main {
                 adult.setName("NewJohn");
                 store.save(adult);
             }
+
+            // Change John's age
             john.setAge(36);
             store.save(john);
+
+            // Create and save a parent
+            PersonIntId karl = new PersonIntId("Karl", 35);
+            store.save(karl);
+            System.out.println("Saved Karl with auto-generated INT ID: " + karl.getId());
+
+            // Create and save a child
+            PersonIntId paul = new PersonIntId("Paul", 10);
+            store.save(paul);
+            System.out.println("Saved Paul with auto-generated INT ID: " + paul.getId());
         } catch (Exception e) {
             e.printStackTrace();
         }

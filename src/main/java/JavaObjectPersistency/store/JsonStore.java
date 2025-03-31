@@ -19,8 +19,8 @@ import java.util.*;
 
 public class JsonStore {
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Map<Class<?>, Map<UUID, Object>> objectCache = new HashMap<>();
-    private final ThreadLocal<Set<UUID>> loadingObjects = ThreadLocal.withInitial(HashSet::new);
+    private final Map<Class<?>, Map<Object, Object>> objectCache = new HashMap<>();
+    private final ThreadLocal<Set<Object>> loadingObjects = ThreadLocal.withInitial(HashSet::new);
 
     private String getFileName(Class<?> type) {
         return type.getSimpleName() + ".json";
@@ -30,12 +30,24 @@ public class JsonStore {
         // Проверяем, есть ли объект с таким же ID уже в кеше
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
-        UUID id = (UUID) idField.get(obj);
+        Object id = idField.get(obj);
 
         // Если ID не установлен, генерируем новый
-        if (id == null) {
-            id = UUID.randomUUID();
-            idField.set(obj, id);
+        if (id == null && idField.getType().equals(UUID.class)) {
+            UUID uuid = UUID.randomUUID();
+            idField.set(obj, uuid);
+            id = uuid;
+        } else if (id == null && idField.getType().equals(Integer.class)) {
+            String fileName = getFileName(obj.getClass());
+            File file = new File(fileName);
+
+            Map<String, Object> storage = file.exists()
+                    ? mapper.readValue(file, Map.class)
+                    : new HashMap<>();
+
+            Integer uid = storage.keySet().size() + 1;
+            idField.set(obj, uid);
+            id = uid;
         }
 
         // Проверяем, есть ли этот объект уже в кеше
@@ -68,6 +80,13 @@ public class JsonStore {
         }
         processed.add(obj);
 
+        String fileName = getFileName(obj.getClass());
+        File file = new File(fileName);
+
+        Map<String, Object> storage = file.exists()
+                ? mapper.readValue(file, Map.class)
+                : new HashMap<>();
+
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
         Object id = idField.get(obj);
@@ -76,6 +95,10 @@ public class JsonStore {
             UUID uuid = UUID.randomUUID();
             idField.set(obj, uuid);
             id = uuid;
+        } else if (id == null && idField.getType().equals(Integer.class)) {
+            Integer uid = storage.keySet().size() + 1;
+            idField.set(obj, uid);
+            id = uid;
         }
 
         // Добавляем объект в кеш до обработки зависимостей
@@ -98,13 +121,6 @@ public class JsonStore {
                 }
             }
         }
-
-        String fileName = getFileName(obj.getClass());
-        File file = new File(fileName);
-
-        Map<String, Object> storage = file.exists()
-                ? mapper.readValue(file, Map.class)
-                : new HashMap<>();
 
         JsonNode jsonNode = serializeObject(obj);
         storage.put(id.toString(), jsonNode);
@@ -327,15 +343,15 @@ public class JsonStore {
     private void addToCache(Object obj) throws Exception {
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
-        UUID id = (UUID) idField.get(obj);
+        Object id = idField.get(obj);
         if (id != null) {
             objectCache.computeIfAbsent(obj.getClass(), k -> new HashMap<>()).put(id, obj);
         }
     }
 
-    private <T> T getFromCache(Class<T> type, UUID id) {
+    private <T> T getFromCache(Class<T> type, Object id) {
         if (id == null) return null;
-        Map<UUID, Object> typeCache = objectCache.get(type);
+        Map<Object, Object> typeCache = objectCache.get(type);
         if (typeCache != null) {
             return (T) typeCache.get(id);
         }
