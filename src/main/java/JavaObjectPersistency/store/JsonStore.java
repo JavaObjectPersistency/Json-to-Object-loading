@@ -95,10 +95,6 @@ public class JsonStore {
         String fileName = getFileName(obj.getClass());
         File file = new File(fileName);
 
-        Map<String, Object> storage = file.exists()
-                ? mapper.readValue(file, Map.class)
-                : new HashMap<>();
-
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
         Object id = idField.get(obj);
@@ -131,6 +127,9 @@ public class JsonStore {
         }
 
         JsonNode jsonNode = serializeObject(obj);
+        Map<String, Object> storage = file.exists()
+                ? mapper.readValue(file, Map.class)
+                : new HashMap<>();
         storage.put(id.toString(), jsonNode);
 
         try (FileOutputStream fos = new FileOutputStream(file)) {

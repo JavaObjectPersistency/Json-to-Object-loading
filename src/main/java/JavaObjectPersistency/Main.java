@@ -46,7 +46,7 @@ public class Main {
             List<Person> johnsFamily = new ArrayList<>();
             johnsFamily.add(jane);
             john.setFamily(johnsFamily);
-            uuidStore.save(john);
+//            uuidStore.save(john);
 
             System.out.println("Updated John with family reference to Jane");
             System.out.println("Saved Jane with auto-generated UUID: " + jane.getId());
@@ -54,7 +54,8 @@ public class Main {
             List<Person> janesFamily = new ArrayList<>();
             janesFamily.add(john);
             jane.setFamily(janesFamily);
-            uuidStore.save(jane);
+//            uuidStore.save(jane);
+            uuidStore.save(john);
 
             // Load John by ID
             List<Person> loadedJohns = uuidStore.loadById(Person.class, john.getId());
