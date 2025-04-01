@@ -351,7 +351,7 @@ public class JsonStore {
     private void addToCache(Object obj) throws Exception {
         Field idField = findIdField(obj.getClass());
         idField.setAccessible(true);
-        Object id = idField.get(obj);
+        String id = idField.get(obj).toString();
         if (id != null) {
             objectCache.computeIfAbsent(obj.getClass(), k -> new HashMap<>()).put(id, obj);
         }
