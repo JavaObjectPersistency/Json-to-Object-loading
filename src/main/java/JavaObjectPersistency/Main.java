@@ -54,16 +54,36 @@ public class Main {
                     System.out.println("John's family member: " + loadedJane);
                 }
             }
+            Person haley = new Person("Haley Sanes", 29);
+            uuidStore.save(haley);
+
+            Person karen = new Person("Karen Randol", 48);
+            uuidStore.save(karen);
+
+            Person andre = new Person("Andre Larcade", 81);
+            uuidStore.save(andre);
+
+            Person calvin = new Person("Calvin Wisseman", 7);
+            uuidStore.save(calvin);
 
             // Load all adult persons (age > 18)
             Query adultQuery = new Query("(age.greaterThan(18)))");
-            //Query adultQuery = new Query("(age.greaterThan(18)) OR (fullName.contains('Jane'))");
             List<Person> adults = uuidStore.loadStream(Person.class, adultQuery);
             System.out.println("Found " + adults.size() + " adults:");
             for (Person adult : adults) {
                 System.out.println(" - " + adult);
-                adult.setName("NewJohn");
-                uuidStore.save(adult);
+                if(adult.getName().equals("John Doe")){
+                    adult.setName("New John Doe"); //same object in java
+                    uuidStore.save(adult);
+                }
+            }
+
+            //Query complexQuery = new Query("((age.greaterThan(18)) AND (age.lessThan(50)) OR (fullName.contains('Jane'))");
+            Query complexQuery = new Query("(age.greaterThan(18)) OR (fullName.contains('Jane')) AND (age.lessThan(9)) ");
+            List<Person> complexPeople = uuidStore.loadStream(Person.class, complexQuery);
+            System.out.println("Found " + complexPeople.size() + " adults:");
+            for (Person complexHuman : complexPeople) {
+                System.out.println(" - " + complexHuman);
             }
 
             // Change John's age

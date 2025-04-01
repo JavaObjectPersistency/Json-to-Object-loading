@@ -2,54 +2,238 @@ package JavaObjectPersistency.query;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Query implements Filter {
-    private final List<Filter> filters = new ArrayList<>();
+    private Filter rootFilter;
     private final String queryString;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     public Query(String query) {
         this.queryString = query;
-        parseQuery(query);
+        this.rootFilter = parseQuery(query);
     }
 
-    private void parseQuery(String query) {
-        // Паттерн для распознавания условий в формате: [NOT] (field.cond(val)) AND/OR [NOT] (field.cond(val))
-        Pattern pattern = Pattern.compile("(?i)(NOT\\s+)?\\s*\\(([^.]+)\\.([^(]+)\\(([^)]+)\\)\\)\\s*(AND|OR)?");
-        Matcher matcher = pattern.matcher(query);
+    private Filter parseQuery(String query) {
+        // Check for balanced parentheses and try to auto-correct minor issues
+        query = balanceParentheses(query.trim());
+        return buildExpressionTree(query);
+    }
 
-        Filter currentFilter = null;
-        String lastOperator = null;
+    private String balanceParentheses(String expression) {
+        // Count parentheses and try to auto-correct common issues
+        int openCount = 0;
+        int closeCount = 0;
 
-        while (matcher.find()) {
-            boolean isNegated = matcher.group(1) != null;
-            String field = matcher.group(2);
-            String condition = matcher.group(3);
-            String value = matcher.group(4).replaceAll("'", "");
-            String operator = matcher.group(5);
-
-            Filter newFilter = createFilter(field, condition, value);
-            if (isNegated) {
-                newFilter = new NotFilter(newFilter);
-            }
-
-            if (currentFilter == null) {
-                currentFilter = newFilter;
-            } else if ("AND".equalsIgnoreCase(lastOperator)) {
-                currentFilter = new AndFilter(currentFilter, newFilter);
-            } else if ("OR".equalsIgnoreCase(lastOperator)) {
-                currentFilter = new OrFilter(currentFilter, newFilter);
-            }
-
-            lastOperator = operator;
+        for (char c : expression.toCharArray()) {
+            if (c == '(') openCount++;
+            else if (c == ')') closeCount++;
         }
 
-        if (currentFilter != null) {
-            filters.add(currentFilter);
+        // Trim excess closing parentheses at the end
+        if (closeCount > openCount) {
+            int excess = closeCount - openCount;
+            if (expression.endsWith(")".repeat(excess))) {
+                return expression.substring(0, expression.length() - excess);
+            }
+        }
+
+        return expression;
+    }
+
+    private Filter buildExpressionTree(String expression) {
+        ExpressionParser parser = new ExpressionParser(expression);
+        return parser.parse();
+    }
+
+    @Override
+    public boolean matches(JsonNode node) {
+        return rootFilter != null && rootFilter.matches(node);
+    }
+
+    public boolean validateObject(String serializedJsonString) {
+        try {
+            JsonNode node = mapper.readTree(serializedJsonString);
+            return matches(node);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // Inner class for parsing expressions
+    private class ExpressionParser {
+        private final String expression;
+        private int position = 0;
+
+        public ExpressionParser(String expression) {
+            this.expression = expression.trim();
+        }
+
+        public Filter parse() {
+            Filter result = parseExpression();
+
+            // Skip any trailing whitespace
+            skipWhitespace();
+
+            // More tolerant of trailing characters, just log them as warnings
+            if (position < expression.length()) {
+                System.out.println("Warning: Ignoring trailing characters in query: " +
+                        expression.substring(position));
+            }
+
+            return result;
+        }
+
+        private Filter parseExpression() {
+            Filter left = parseTerm();
+
+            while (position < expression.length()) {
+                skipWhitespace();
+                if (position >= expression.length() ||
+                        !matchKeyword("OR")) {
+                    break;
+                }
+                // Skip "OR"
+                position += 2;
+                Filter right = parseTerm();
+                left = new OrFilter(left, right);
+            }
+
+            return left;
+        }
+
+        private Filter parseTerm() {
+            Filter left = parseFactor();
+
+            while (position < expression.length()) {
+                skipWhitespace();
+                if (position >= expression.length() ||
+                        !matchKeyword("AND")) {
+                    break;
+                }
+                // Skip "AND"
+                position += 3;
+                Filter right = parseFactor();
+                left = new AndFilter(left, right);
+            }
+
+            return left;
+        }
+
+        private boolean matchKeyword(String keyword) {
+            // Check if the keyword appears at the current position
+            int remainingLength = expression.length() - position;
+            if (remainingLength < keyword.length()) return false;
+
+            String potentialKeyword = expression.substring(position, position + keyword.length());
+            // Check exact match or followed by whitespace or opening parenthesis
+            if (potentialKeyword.equalsIgnoreCase(keyword)) {
+                if (potentialKeyword.length() == remainingLength ||
+                        !Character.isLetterOrDigit(expression.charAt(position + keyword.length()))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private Filter parseFactor() {
+            skipWhitespace();
+
+            // Check for NOT operator
+            boolean isNegated = false;
+            if (matchKeyword("NOT")) {
+                isNegated = true;
+                position += 3; // Skip "NOT"
+                skipWhitespace();
+            }
+
+            // Parse the condition or sub-expression
+            Filter filter;
+
+            if (position < expression.length() && expression.charAt(position) == '(') {
+                position++; // Skip opening parenthesis
+                skipWhitespace();
+
+                // Check if this is a field.condition format
+                int dotPos = expression.indexOf('.', position);
+                if (dotPos > position && dotPos < expression.length()) {
+                    String field = expression.substring(position, dotPos).trim();
+                    position = dotPos + 1;
+
+                    // Parse the condition name
+                    skipWhitespace();
+                    int openParenPos = findNextNonEscaped('(', position);
+                    if (openParenPos > position) {
+                        String condition = expression.substring(position, openParenPos).trim();
+                        position = openParenPos + 1;
+
+                        // Parse the parameter value
+                        int closeParenPos = findMatchingClosingParenthesis(openParenPos);
+                        if (closeParenPos > openParenPos) {
+                            String value = expression.substring(openParenPos + 1, closeParenPos).trim();
+                            value = value.replace("'", "").replace("\"", "");
+                            position = closeParenPos + 1;
+
+                            filter = createFilter(field, condition, value);
+
+                            // Skip closing parenthesis of the entire condition
+                            skipWhitespace();
+                            if (position < expression.length() && expression.charAt(position) == ')') {
+                                position++;
+                            }
+                        } else {
+                            throw new IllegalArgumentException("Missing closing parenthesis for condition parameter");
+                        }
+                    } else {
+                        throw new IllegalArgumentException("Invalid condition format at position " + position);
+                    }
+                } else {
+                    // This is a parenthesized expression
+                    filter = parseExpression();
+
+                    // Expect closing parenthesis
+                    skipWhitespace();
+                    if (position < expression.length() && expression.charAt(position) == ')') {
+                        position++; // Skip closing parenthesis
+                    } else {
+                        throw new IllegalArgumentException("Missing closing parenthesis for sub-expression");
+                    }
+                }
+            } else {
+                throw new IllegalArgumentException("Expected condition or sub-expression at position " + position);
+            }
+
+            // Apply NOT operator if present
+            return isNegated ? new NotFilter(filter) : filter;
+        }
+
+        private int findNextNonEscaped(char target, int startPos) {
+            for (int i = startPos; i < expression.length(); i++) {
+                if (expression.charAt(i) == target && (i == 0 || expression.charAt(i - 1) != '\\')) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        private int findMatchingClosingParenthesis(int openParenPos) {
+            int depth = 1;
+            for (int i = openParenPos + 1; i < expression.length(); i++) {
+                if (expression.charAt(i) == '(' && (i == 0 || expression.charAt(i - 1) != '\\')) {
+                    depth++;
+                } else if (expression.charAt(i) == ')' && (i == 0 || expression.charAt(i - 1) != '\\')) {
+                    depth--;
+                    if (depth == 0) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private void skipWhitespace() {
+            while (position < expression.length() && Character.isWhitespace(expression.charAt(position))) {
+                position++;
+            }
         }
     }
 
@@ -65,25 +249,6 @@ public class Query implements Filter {
                 return new ContainsFilter(field, value);
             default:
                 throw new IllegalArgumentException("Unknown condition: " + condition);
-        }
-    }
-
-    @Override
-    public boolean matches(JsonNode node) {
-        for (Filter filter : filters) {
-            if (!filter.matches(node)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public boolean validateObject(String serializedJsonString) {
-        try {
-            JsonNode node = mapper.readTree(serializedJsonString);
-            return matches(node);
-        } catch (Exception e) {
-            return false;
         }
     }
 }
