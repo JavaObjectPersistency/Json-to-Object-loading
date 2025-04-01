@@ -14,6 +14,20 @@ public class Main {
     public static void main(String[] args) {
 
         try {
+            // Create store with INT strategy for other objects
+            JsonStore intStore = new JsonStore(IdGenType.INT);
+            intStore.clearStorage(DifferentPerson.class);
+            // Create and save a parent
+            DifferentPerson karl = new DifferentPerson("Karl", 35);
+            intStore.save(karl);
+            System.out.println("Saved Karl with auto-generated INT ID: " + karl.getId());
+
+            // Create and save a child
+            DifferentPerson paul = new DifferentPerson("Paul", 10);
+            intStore.save(paul);
+            System.out.println("Saved Paul with auto-generated INT ID: " + paul.getId());
+
+
             // Create store with UUID strategy
             JsonStore uuidStore = new JsonStore();
             uuidStore.clearStorage(Person.class);
@@ -78,31 +92,17 @@ public class Main {
                 }
             }
 
+            // Change John's age
+            john.setAge(36);
+            uuidStore.save(john);
+
             //Query complexQuery = new Query("((age.greaterThan(18)) AND (age.lessThan(50)) OR (fullName.contains('Jane'))");
-            Query complexQuery = new Query("(age.greaterThan(18)) OR (fullName.contains('Jane')) AND (age.lessThan(9)) ");
+            Query complexQuery = new Query("(age.greaterThan(18)) OR (age.lessThan(9)) ");
             List<Person> complexPeople = uuidStore.loadStream(Person.class, complexQuery);
             System.out.println("Found " + complexPeople.size() + " adults:");
             for (Person complexHuman : complexPeople) {
                 System.out.println(" - " + complexHuman);
             }
-
-            // Change John's age
-            john.setAge(36);
-            uuidStore.save(john);
-
-
-            // Create store with INT strategy for other objects
-            JsonStore intStore = new JsonStore(IdGenType.INT);
-            intStore.clearStorage(DifferentPerson.class);
-            // Create and save a parent
-            DifferentPerson karl = new DifferentPerson("Karl", 35);
-            intStore.save(karl);
-            System.out.println("Saved Karl with auto-generated INT ID: " + karl.getId());
-
-            // Create and save a child
-            DifferentPerson paul = new DifferentPerson("Paul", 10);
-            intStore.save(paul);
-            System.out.println("Saved Paul with auto-generated INT ID: " + paul.getId());
         } catch (Exception e) {
             e.printStackTrace();
         }
