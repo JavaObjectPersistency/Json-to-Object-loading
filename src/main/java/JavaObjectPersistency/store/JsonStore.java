@@ -134,7 +134,7 @@ public class JsonStore {
         storage.put(id.toString(), jsonNode);
 
         try (FileOutputStream fos = new FileOutputStream(file)) {
-            mapper.writeValue(fos, storage);
+            mapper.writerWithDefaultPrettyPrinter().writeValue(fos, storage);
         }
     }
 
@@ -337,7 +337,7 @@ public class JsonStore {
         if (file.exists()) {
             Map<String, Object> emptyStorage = new HashMap<>();
             try (FileOutputStream fos = new FileOutputStream(file)) {
-                mapper.writeValue(fos, emptyStorage);
+                mapper.writerWithDefaultPrettyPrinter().writeValue(fos, emptyStorage);
             }
             System.out.println("Storage cleared for " + type.getSimpleName());
         } else {
