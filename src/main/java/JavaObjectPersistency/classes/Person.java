@@ -6,7 +6,6 @@ import JavaObjectPersistency.annotations.Transient;
 import JavaObjectPersistency.annotations.FieldAlias;
 
 import java.util.List;
-import java.util.UUID;
 
 @Persistent
 public class Person {

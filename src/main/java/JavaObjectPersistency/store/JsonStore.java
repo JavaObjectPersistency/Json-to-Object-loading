@@ -21,9 +21,32 @@ public class JsonStore {
     private final ObjectMapper mapper = new ObjectMapper();
     private final Map<Class<?>, Map<Object, Object>> objectCache = new HashMap<>();
     private final ThreadLocal<Set<Object>> loadingObjects = ThreadLocal.withInitial(HashSet::new);
+    private IdGenType idGenStrategy; // Store the ID generation strategy
+
+
+    // Constructor that accepts the ID generation strategy
+    public JsonStore(IdGenType idGenStrategy) {
+        this.idGenStrategy = idGenStrategy;
+    }
+
+    // Default constructor with a default strategy
+    public JsonStore() {
+        this.idGenStrategy = IdGenType.UUID; // Default to UUID
+    }
+
+    // Method to change the strategy at runtime if needed
+    public void setIdGenerationStrategy(IdGenType idGenStrategy) {
+        this.idGenStrategy = idGenStrategy;
+    }
 
     private String getFileName(Class<?> type) {
         return type.getSimpleName() + ".json";
+    }
+
+    // Simplified save method that uses the stored strategy
+    public void save(Object obj) throws Exception {
+        // Delegate to the existing implementation
+        save(obj, this.idGenStrategy);
     }
 
     public void save(Object obj, IdGenType mode) throws Exception {

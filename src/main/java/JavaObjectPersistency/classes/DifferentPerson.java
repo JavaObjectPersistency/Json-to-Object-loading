@@ -4,13 +4,11 @@ import JavaObjectPersistency.annotations.Id;
 import JavaObjectPersistency.annotations.Persistent;
 import JavaObjectPersistency.annotations.Transient;
 import JavaObjectPersistency.annotations.FieldAlias;
-import JavaObjectPersistency.store.IdGenerator;
 
 import java.util.List;
-import java.util.UUID;
 
 @Persistent
-public class PersonIntId {
+public class DifferentPerson {
     @Id
     private Object id; // Will be automatically generated if null
 
@@ -25,10 +23,10 @@ public class PersonIntId {
     private List<Person> family;
 
     // Default constructor needed for deserialization
-    public PersonIntId() {
+    public DifferentPerson() {
     }
 
-    public PersonIntId(String name, int age) {
+    public DifferentPerson(String name, int age) {
         this.name = name;
         this.age = age;
     }
@@ -73,7 +71,7 @@ public class PersonIntId {
 
     @Override
     public String toString() {
-        return "Person{" +
+        return "DifferentPerson{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", age=" + age +
